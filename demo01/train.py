@@ -12,6 +12,11 @@ from tqdm import tqdm
 
 from model_alexNet import AlexNet
 
+# from model_resneXt import resnet34
+from model_resneXt import resnext50_32x4d
+
+
+
 def accuracy(output, target, topk=(1,)):
     """Computes the accuracy over the k top predictions for the specified values of k"""
     with torch.no_grad():
@@ -32,14 +37,14 @@ def accuracy(output, target, topk=(1,)):
 def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     transform_train = transforms.Compose([
-        transforms.Resize(224),
-        transforms.RandomCrop(224, padding=4),
+        transforms.RandomResizedCrop(224),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
     transform_test = transforms.Compose([
-        transforms.Resize(224),
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
     ])
@@ -48,22 +53,31 @@ def main():
     test_set = datasets.CIFAR100('../data', train=False, transform=transform_test)
 
     train_loader = torch.utils.data.DataLoader(
-        train_set,batch_size=64,shuffle=True,num_workers=0)
+        train_set,batch_size=64,shuffle=True,num_workers=1)
     test_loader = torch.utils.data.DataLoader(
-        test_set,batch_size=64,shuffle=False,num_workers=0)
+        test_set,batch_size=64,shuffle=False,num_workers=1)
     tran_num = train_set.__len__()
     val_num = test_set.__len__()
     # print(tran_num)
     # print(val_num)
+
     # net = AlexNet(num_classes=10, init_weights=True)
-    net = AlexNet(num_classes=100)
+    # net = AlexNet(num_classes=100) # todo AlexNet
+    # save_path = './checkpoint/AlexNet.pth'
+
+    # net = resnet34(num_classes=100) #todo resnet34
+    # save_path = './checkpoint/resnet34.pth'
+
+    net = resnext50_32x4d(num_classes=100)  # todo resnet34
+    save_path = './checkpoint/resnext50_32x4d.pth'
+
     net.to(device)
 
 
     loss_function = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(), lr=0.0002)
     epochs = 2
-    save_path = './checkpoint/AlexNet.pth'
+
     best_acc = 0.0
     train_steps = len(train_loader)
 
@@ -96,7 +110,7 @@ def main():
         net.eval()
         acc = 0.0  # accumulate accurate number / epoch
         with torch.no_grad():
-            val_bar = tqdm(test_loader, colour='green')
+            val_bar = tqdm(test_loader)
             for val_data in val_bar:
                 val_images, val_labels = val_data
                 outputs = net(val_images.to(device))
